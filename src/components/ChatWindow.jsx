@@ -1,33 +1,130 @@
-import { useRef, useEffect } from 'react';
-import { Sparkles, Code, FileText, Lightbulb, Loader2, AlertCircle } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { fetchInitialData } from '../APIs/chatApi';
-import { useChatContext } from '../context/ChatContext';
-import ChatMessage from './ChatMessage';
+import { useRef, useEffect, useState } from "react";
+import { Sparkles, Loader2, AlertCircle } from "lucide-react";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ChatWindow — Renders either Empty State (React Query) or Chat History (Context)
-// ─────────────────────────────────────────────────────────────────────────────
+import { useQuery } from "@tanstack/react-query";
+
+import { fetchInitialData } from "../APIs/chatApi";
+import { useChatContext } from "../context/ChatContext";
+import ChatMessage from "./ChatMessage";
+
+import {
+  addDoc,
+  collection,
+  doc,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+
+import { db } from "../firebase/dataStoring";
+// ============= ====== ChatWindow ====== ==============
 
 export default function ChatWindow() {
-  const { messages, isPending, sendMessage } = useChatContext();
+  const { messages, isPending } = useChatContext();
+
   const bottomRef = useRef(null);
 
-  // Fetch initial empty-state data
-  const { data, isLoading: isQueryLoading, isError, error } = useQuery({
-    queryKey: ['chatInitialData'],
+  // Current Firestore conversation ID
+  const [conversationId, setConversationId] = useState(null);
+
+  // React Query - Empty State Data
+
+  const {
+    data,
+    isLoading: isQueryLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["chatInitialData"],
     queryFn: fetchInitialData,
   });
-  
 
-  localStorage.setItem("converssion", JSON.stringify(messages))
+  // ============= ====== Create / Get Conversation ====== ==============
 
-  // Auto-scroll on new messages
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const setupConversation = async () => {
+      try {
+        // Create a new conversation in Firestore
+        const conversationRef = await addDoc(collection(db, "conversations"), {
+          messages: [],
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+
+        const newConversationId = conversationRef.id;
+
+        // Store conversation ID locally
+        localStorage.setItem("conversationId", newConversationId);
+
+        setConversationId(newConversationId);
+
+        console.log("New conversation created:", newConversationId);
+      } catch (error) {
+        console.error("Error creating conversation:", error);
+      }
+    };
+
+    setupConversation();
+  }, []);
+
+  // ============= ====== Save Messages to LocalStorage ====== ==============
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    localStorage.setItem("converssion", JSON.stringify(messages));
+  }, [messages]);
+
+  // ============= ====== Save / Update Conversation in Firestore ====== ==============
+
+  useEffect(() => {
+    if (!conversationId || messages.length === 0) {
+      return;
+    }
+
+    const saveConversation = async () => {
+      try {
+        // Convert messages array into an object
+        const messagesObject = messages.reduce((acc, message) => {
+          acc[message.id] = {
+            role: message.role,
+            content: message.content,
+          };
+
+          return acc;
+        }, {});
+
+        const conversationRef = doc(db, "conversations", conversationId);
+
+        await setDoc(
+          conversationRef,
+          {
+            messages: messagesObject,
+            updatedAt: serverTimestamp(),
+          },
+          {
+            merge: true,
+          },
+        );
+
+        console.log("Conversation saved successfully");
+      } catch (error) {
+        console.error("Error saving conversation:", error);
+      }
+    };
+
+    saveConversation();
+  }, [messages, conversationId]);
+
+  // ============= ====== Auto Scroll ====== ==============
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
   }, [messages, isPending]);
 
-  // 1. If we have messages, render the chat history
+  //  ============= ====== Chat History ====== ==============
+
   if (messages.length > 0) {
     return (
       <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8 lg:px-16 xl:px-32">
@@ -50,24 +147,33 @@ export default function ChatWindow() {
     );
   }
 
-  // 2. Otherwise, render the empty state
+  // Loading State
+
   if (isQueryLoading) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 text-violet-400">
         <Loader2 className="h-8 w-8 animate-spin" />
+
         <span className="text-sm font-medium">Loading Nexora AI...</span>
       </div>
     );
   }
 
+  // Error State
+
   if (isError) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 text-red-400 px-6 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center text-red-400">
         <AlertCircle className="h-8 w-8" />
-        <span className="text-sm font-medium">Error loading data: {error.message}</span>
+
+        <span className="text-sm font-medium">
+          Error loading data: {error.message}
+        </span>
       </div>
     );
   }
+
+  // Empty State
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6">
@@ -76,12 +182,12 @@ export default function ChatWindow() {
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600/20 to-blue-500/20 ring-1 ring-violet-500/20">
           <Sparkles className="h-7 w-7 text-violet-400" />
         </div>
+
         <h1 className="text-3xl font-semibold tracking-tight text-white">
-          {data.greeting}
+          {data?.greeting}
         </h1>
-        <p className="max-w-md text-sm text-slate-400">
-          {data.description}
-        </p>
+
+        <p className="max-w-md text-sm text-slate-400">{data?.description}</p>
       </div>
     </div>
   );
