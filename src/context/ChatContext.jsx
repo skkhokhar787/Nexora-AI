@@ -13,6 +13,7 @@ export function useChatContext() {
 export function ChatProvider({ children }) {
   const [messages, setMessages] = useState([]);
   const [model, setModel] = useState('openai/gpt-oss-120b');
+  const [conversationId, setConversationId] = useState(() => localStorage.getItem("conversationId") || null);
 
   const chatMutation = useMutation({
     mutationFn: (newMessages) => sendChatMessage({ messages: newMessages, model }),
@@ -44,16 +45,21 @@ export function ChatProvider({ children }) {
 
   const resetChat = useCallback(() => {
     setMessages([]);
+    setConversationId(null);
+    localStorage.removeItem("conversationId");
   }, []);
 
   return (
     <ChatContext.Provider
       value={{
         messages,
+        setMessages,
         model,
         setModel,
         sendMessage,
         resetChat,
+        conversationId,
+        setConversationId,
         isPending: chatMutation.isPending
       }}
     >
