@@ -12,7 +12,6 @@ export default function ChatLayout() {
     <div className="flex h-screen overflow-hidden bg-slate-950 text-slate-100">
       {/* Left sidebar — branding, new chat, settings */}
       <Sidebar />
-
       {/* Main content area — chat messages + input */}
       <main className="relative flex flex-1 flex-col overflow-hidden">
         <ChatWindow />

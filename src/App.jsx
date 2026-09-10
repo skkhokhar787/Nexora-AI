@@ -1,32 +1,21 @@
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Routes, Route } from "react-router-dom";
 import { ChatProvider } from "./context/ChatContext";
-import ChatLayout from "./layout/ChatLayout";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// App.jsx — ROUTING & PROVIDERS
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Create a client
-const queryClient = new QueryClient();
+import LandingPage from "./pages/LandingPage";
+import Home from "./pages/Home";
+import LoginPage from "./pages/LoginPage";
+import SignUpPage from "./pages/SignupPage";
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ChatProvider>
-          <Router>
-            <Routes>
-              <Route path="/" element={<ChatLayout />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Router>
-      
-      </ChatProvider>
-    </QueryClientProvider>
+    <ChatProvider>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/login/signup" element={<SignUpPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/signup/login " element={<LoginPage />} />
+      </Routes>
+    </ChatProvider>
   );
 }

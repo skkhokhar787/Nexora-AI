@@ -43,6 +43,7 @@ export default function ChatInput() {
           className="absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600 text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Send message"
         >
+          
           {isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (

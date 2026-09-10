@@ -1,15 +1,12 @@
-import { useRef, useEffect, useState } from "react";
-import {
-  Sparkles,
-  Loader2,
-  AlertCircle,
-} from "lucide-react";
+import { useRef, useEffect } from "react";
+import { Sparkles, Loader2, AlertCircle } from "lucide-react";
 
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchInitialData } from "../APIs/chatApi";
 import { useChatContext } from "../context/ChatContext";
 import ChatMessage from "./ChatMessage";
+import { db, auth } from "../firebase/dataStoring";
 
 import {
   addDoc,
@@ -17,20 +14,30 @@ import {
   doc,
   setDoc,
   serverTimestamp,
+  getDocs,
+  query,
+  orderBy,
 } from "firebase/firestore";
 
-import { db } from "../firebase/dataStoring";
 
 // ChatWindow
-export default function ChatWindow() {
-  const { messages, setMessages, isPending, conversationId, setConversationId } = useChatContext();
+function ChatWindow() {
+  const {
+    messages,
+    setMessages,
+    isPending,
+    conversationId,
+    setConversationId,
+  } = useChatContext();
 
   const bottomRef = useRef(null);
 
   // Prevent saving the same message multiple times
   const lastSavedMessageId = useRef(null);
 
+  // --------------------------------
   // React Query
+  // --------------------------------
 
   const {
     data,
@@ -42,67 +49,101 @@ export default function ChatWindow() {
     queryFn: fetchInitialData,
   });
 
+  // --------------------------------
   // Create conversation
+  // --------------------------------
 
   useEffect(() => {
     const createNewConversation = async () => {
-      try {
-        if (conversationId) return;
+      const user = auth.currentUser;
 
-        // Create a new conversation
-        const conversationRef = await addDoc(
-          collection(db, "conversations"),
-          {
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          }
+      // User is not logged in
+      if (!user) {
+        console.log("No authenticated user");
+        return;
+      }
+
+      // Conversation already exists
+      if (conversationId) {
+        return;
+      }
+
+      try {
+        // users/{userId}/conversations
+        const conversationsRef = collection(
+          db,
+          "users",
+          user.uid,
+          "conversations",
         );
+
+        // Create conversation
+        const conversationRef = await addDoc(conversationsRef, {
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
 
         const newConversationId = conversationRef.id;
 
         // Save conversation ID locally
-        localStorage.setItem(
-          "conversationId",
-          newConversationId
-        );
+        localStorage.setItem("conversationId", newConversationId);
 
+        // Update context
         setConversationId(newConversationId);
 
-        console.log(
-          "Conversation created:",
-          newConversationId
-        );
+        console.log("Conversation created:", newConversationId);
       } catch (error) {
-        console.error(
-          "Error creating conversation:",
-          error
-        );
+        console.error("Error creating conversation:", error);
       }
     };
 
     createNewConversation();
   }, [conversationId, setConversationId]);
 
-  // Load messages from Firestore when conversationId changes
+  // --------------------------------
+  // Load messages from Firestore
+  // --------------------------------
+
   useEffect(() => {
     const loadMessages = async () => {
-      if (!conversationId) return;
+      const user = auth.currentUser;
+
+      if (!user || !conversationId) {
+        return;
+      }
+
       try {
-        const { getDocs, query, collection, orderBy } = await import("firebase/firestore");
-        const messagesRef = collection(db, "conversations", conversationId, "messages");
+        /*
+          users/{userId}/conversations/{conversationId}/messages
+        */
+
+        const messagesRef = collection(
+          db,
+          "users",
+          user.uid,
+          "conversations",
+          conversationId,
+          "messages",
+        );
+
         const q = query(messagesRef, orderBy("createdAt", "asc"));
+
         const querySnapshot = await getDocs(q);
-        
+
         const loadedMessages = [];
-        querySnapshot.forEach((doc) => {
-          loadedMessages.push({ id: doc.id, ...doc.data() });
+
+        querySnapshot.forEach((messageDoc) => {
+          loadedMessages.push({
+            id: messageDoc.id,
+            ...messageDoc.data(),
+          });
         });
-        
+
         if (loadedMessages.length > 0) {
           setMessages(loadedMessages);
-          lastSavedMessageId.current = loadedMessages[loadedMessages.length - 1].id;
-        } else if (messages.length > 0 && conversationId === localStorage.getItem("conversationId")) {
-          // Keep current messages if they exist and we just created this conversation
+
+          lastSavedMessageId.current =
+            loadedMessages[loadedMessages.length - 1].id;
         } else {
           setMessages([]);
         }
@@ -114,82 +155,95 @@ export default function ChatWindow() {
     loadMessages();
   }, [conversationId, setMessages]);
 
+  // --------------------------------
   // Save messages to localStorage
+  // --------------------------------
 
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (messages.length === 0) {
+      return;
+    }
 
-    localStorage.setItem(
-      "converssion",
-      JSON.stringify(messages)
-    );
+    localStorage.setItem("conversation", JSON.stringify(messages));
   }, [messages]);
 
+  // --------------------------------
   // Save latest message to Firestore
+  // --------------------------------
 
   useEffect(() => {
-    if (!conversationId || messages.length === 0) {
-      return;
-    }
+    const saveLatestMessage = async () => {
+      const user = auth.currentUser;
 
-    const latestMessage =
-      messages[messages.length - 1];
+      if (!user || !conversationId || messages.length === 0) {
+        return;
+      }
 
-    // Don't save the same message again
-    if (
-      latestMessage.id === lastSavedMessageId.current
-    ) {
-      return;
-    }
+      const latestMessage = messages[messages.length - 1];
 
-    const saveMessage = async () => {
+      // Don't save same message twice
+      if (latestMessage.id === lastSavedMessageId.current) {
+        return;
+      }
+
       try {
-        // Use the message ID as the Firestore document ID
+        /*
+          users/{userId}
+            /conversations/{conversationId}
+              /messages/{messageId}
+        */
+
         const messageRef = doc(
           db,
+          "users",
+          user.uid,
           "conversations",
           conversationId,
           "messages",
-          latestMessage.id
+          latestMessage.id,
         );
 
+        // Save message
         await setDoc(messageRef, {
           role: latestMessage.role,
           content: latestMessage.content,
           createdAt: serverTimestamp(),
         });
 
-        // Update conversation timestamp
+        // Update conversation
+        const conversationRef = doc(
+          db,
+          "users",
+          user.uid,
+          "conversations",
+          conversationId,
+        );
+
         await setDoc(
-          doc(db, "conversations", conversationId),
+          conversationRef,
           {
             updatedAt: serverTimestamp(),
           },
           {
             merge: true,
-          }
+          },
         );
 
-        // Remember that this message was saved
-        lastSavedMessageId.current =
-          latestMessage.id;
+        // Remember saved message
+        lastSavedMessageId.current = latestMessage.id;
 
-        console.log(
-          "Message saved:",
-          latestMessage.content
-        );
+        console.log("Message saved:", latestMessage.content);
       } catch (error) {
-        console.error(
-          "Error saving message:",
-          error
-        );
+        console.error("Error saving message:", error);
       }
     };
 
-    saveMessage();
+    saveLatestMessage();
   }, [messages, conversationId]);
 
-  // Auto-scroll on new messages
+  // --------------------------------
+  // Auto-scroll
+  // --------------------------------
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -197,22 +251,20 @@ export default function ChatWindow() {
     });
   }, [messages, isPending]);
 
-  // Chat history
+  // --------------------------------
+  // Chat messages
+  // --------------------------------
 
   if (messages.length > 0) {
     return (
       <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8 lg:px-16 xl:px-32">
         <div className="mx-auto max-w-3xl space-y-6">
-
           {messages.map((msg) => (
-            <ChatMessage
-              key={msg.id}
-              role={msg.role}
-              content={msg.content}
-            />
+            <ChatMessage key={msg.id} role={msg.role} content={msg.content} />
           ))}
 
           {/* Typing indicator */}
+
           {isPending && (
             <div className="flex items-center gap-2 text-sm text-slate-400">
               <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
@@ -226,21 +278,23 @@ export default function ChatWindow() {
     );
   }
 
+  // --------------------------------
   // Loading state
+  // --------------------------------
 
   if (isQueryLoading) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 text-violet-400">
         <Loader2 className="h-8 w-8 animate-spin" />
 
-        <span className="text-sm font-medium">
-          Loading Nexora AI...
-        </span>
+        <span className="text-sm font-medium">Loading Nexora AI...</span>
       </div>
     );
   }
 
+  // --------------------------------
   // Error state
+  // --------------------------------
 
   if (isError) {
     return (
@@ -254,27 +308,29 @@ export default function ChatWindow() {
     );
   }
 
+  // --------------------------------
   // Empty state
+  // --------------------------------
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6">
-
       {/* Hero */}
-      <div className="flex flex-col items-center gap-3 text-center">
 
+      <div className="flex flex-col items-center gap-3 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600/20 to-blue-500/20 ring-1 ring-violet-500/20">
           <Sparkles className="h-7 w-7 text-violet-400" />
         </div>
 
         <h1 className="text-3xl font-semibold tracking-tight text-white">
-          {data.greeting}
+          {data?.greeting || "Hello! How can I help you?"}
         </h1>
 
         <p className="max-w-md text-sm text-slate-400">
-          {data.description}
+          {data?.description || "Ask me anything and I'll do my best to help."}
         </p>
-
       </div>
     </div>
   );
 }
+
+export default ChatWindow;

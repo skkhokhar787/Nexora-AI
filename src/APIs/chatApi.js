@@ -19,6 +19,8 @@ export const fetchInitialData = async () => {
 
 // Example 2: Send a chat message to the API
 export const sendChatMessage = async ({ messages, model }) => {
+
+
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
