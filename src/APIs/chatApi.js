@@ -19,8 +19,6 @@ export const fetchInitialData = async () => {
 
 // Example 2: Send a chat message to the API
 export const sendChatMessage = async ({ messages, model }) => {
-
-
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -28,7 +26,7 @@ export const sendChatMessage = async ({ messages, model }) => {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: model || 'llama3-8b-8192', // fallback default
+      model: model || 'llama3-8b-8192',
       messages
     })
   });
@@ -40,6 +38,39 @@ export const sendChatMessage = async ({ messages, model }) => {
 
   const data = await response.json();
   return data.choices[0].message.content;
+};
+
+// Generate a short chat title from the first user message
+export const generateChatTitle = async (firstMessage) => {
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-oss-20b",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You generate short chat titles. Reply with ONLY a 3-6 word title summarizing the user's message. No quotes, no punctuation at the end, no explanation, no extra text.",
+          },
+          { role: "user", content: firstMessage },
+        ],
+        temperature: 0.3,
+        reasoning_effort: "low",
+        max_tokens: 150,
+      }),
+    });
+
+    const data = await response.json();
+    return data.choices[0].message.content.trim();
+  } catch (error) {
+    console.error('Error generating chat title:', error);
+    return 'New Chat';
+  }
 };
 
 // Example 3: Fetch available models from Groq API

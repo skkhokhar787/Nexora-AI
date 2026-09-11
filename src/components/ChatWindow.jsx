@@ -3,7 +3,7 @@ import { Sparkles, Loader2, AlertCircle } from "lucide-react";
 
 import { useQuery } from "@tanstack/react-query";
 
-import { fetchInitialData } from "../APIs/chatApi";
+import { fetchInitialData, generateChatTitle } from "../APIs/chatApi";
 import { useChatContext } from "../context/ChatContext";
 import ChatMessage from "./ChatMessage";
 import { db, auth } from "../firebase/dataStoring";
@@ -219,10 +219,18 @@ function ChatWindow() {
           conversationId,
         );
 
+        // Generate title if this is the first user message
+        let titleUpdate = {};
+        if (messages.length === 1 && latestMessage.role === 'user') {
+          const title = await generateChatTitle(latestMessage.content);
+          titleUpdate = { title };
+        }
+
         await setDoc(
           conversationRef,
           {
             updatedAt: serverTimestamp(),
+            ...titleUpdate,
           },
           {
             merge: true,

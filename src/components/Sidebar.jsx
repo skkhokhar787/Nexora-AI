@@ -1,17 +1,52 @@
-import { useState, useEffect } from 'react';
-import { Sparkles, Plus, ChevronDown, Thermometer, MessageSquare, X } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { fetchModels } from '../APIs/chatApi';
-import { useChatContext } from '../context/ChatContext';
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase/dataStoring';
+import { useState, useEffect } from "react";
+import {
+  Sparkles,
+  Plus,
+  ChevronDown,
+  Thermometer,
+  MessageSquare,
+  X,
+} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchModels } from "../APIs/chatApi";
+import { useChatContext } from "../context/ChatContext";
+import {
+  collection,
+  query,
+  orderBy,
+  where,
+  onSnapshot,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { db, auth } from "../firebase/dataStoring";
 
 function ChatHistoryList() {
   const { conversationId, setConversationId, resetChat } = useChatContext();
   const [conversations, setConversations] = useState([]);
+  const [userId, setUserId] = useState(null);
 
+  // Track the logged-in user
   useEffect(() => {
-    const q = query(collection(db, 'conversations'), orderBy('updatedAt', 'desc'));
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setUserId(user ? user.uid : null);
+    });
+    return () => unsubscribeAuth();
+  }, []);
+
+  // Only subscribe to this user's conversations
+  useEffect(() => {
+    if (!userId) {
+      setConversations([]);
+      return;
+    }
+
+    const q = query(
+      collection(db, "users", userId, "conversations"),
+      orderBy("updatedAt", "desc"),
+    );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const convos = [];
       snapshot.forEach((doc) => {
@@ -21,12 +56,13 @@ function ChatHistoryList() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [userId]);
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
+    if (!userId) return;
     try {
-      await deleteDoc(doc(db, 'conversations', id));
+      await deleteDoc(doc(db, "users", userId, "conversations", id));
       if (conversationId === id) {
         resetChat();
       }
@@ -36,9 +72,12 @@ function ChatHistoryList() {
   };
 
   const handleClearAll = async () => {
+    if (!userId) return;
     if (!window.confirm("Are you sure you want to delete all chats?")) return;
     try {
-      const promises = conversations.map(conv => deleteDoc(doc(db, 'conversations', conv.id)));
+      const promises = conversations.map((conv) =>
+        deleteDoc(doc(db, "users", userId, "conversations", conv.id)),
+      );
       await Promise.all(promises);
       resetChat();
     } catch (error) {
@@ -53,7 +92,7 @@ function ChatHistoryList() {
           Recent Chats
         </label>
         {conversations.length > 0 && (
-          <button 
+          <button
             onClick={handleClearAll}
             className="text-[10px] text-slate-500 hover:text-red-400 transition-colors uppercase font-medium tracking-wider"
             title="Clear all chats"
@@ -64,56 +103,61 @@ function ChatHistoryList() {
       </div>
 
       {conversations.length === 0 ? (
-        <div className="text-xs text-slate-500 px-1">No recent chats</div>
+        <div className="text-xs text-slate-500 px-1">
+          {userId ? "No recent chats" : "Log in to see your chats"}
+        </div>
       ) : (
         <div className="flex flex-col gap-1">
-      {conversations.map((conv) => {
-        const isActive = conv.id === conversationId;
-        const date = conv.updatedAt?.toDate() || new Date();
-        const formattedDate = new Intl.DateTimeFormat('en-US', {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }).format(date);
+          {conversations.map((conv) => {
+            const isActive = conv.id === conversationId;
+            const date = conv.updatedAt?.toDate() || new Date();
+            const formattedDate = new Intl.DateTimeFormat("en-US", {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(date);
 
-        return (
-          <div
-            key={conv.id}
-            onClick={() => {
-              setConversationId(conv.id);
-              localStorage.setItem("conversationId", conv.id);
-            }}
-            className={`group relative flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors cursor-pointer ${
-              isActive 
-                ? 'bg-slate-800 text-slate-200' 
-                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-300'
-            }`}
-          >
-            <div className="flex items-start gap-3 overflow-hidden text-left">
-              <MessageSquare className="h-4 w-4 mt-0.5 shrink-0" />
-              <div className="flex flex-col overflow-hidden">
-                <span className="truncate font-medium">Chat {conv.id.slice(0, 5)}</span>
-                <span className="text-[10px] text-slate-500">{formattedDate}</span>
+            return (
+              <div
+                key={conv.id}
+                onClick={() => {
+                  setConversationId(conv.id);
+                  localStorage.setItem("conversationId", conv.id);
+                }}
+                className={`group relative flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors cursor-pointer ${
+                  isActive
+                    ? "bg-slate-800 text-slate-200"
+                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-300"
+                }`}
+              >
+                <div className="flex items-start gap-3 overflow-hidden text-left">
+                  <MessageSquare className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div className="flex flex-col overflow-hidden">
+                    <span className="truncate font-medium">
+                      {conv.title || "New Chat"}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {formattedDate}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={(e) => handleDelete(e, conv.id)}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-700 rounded-md transition-all shrink-0"
+                  title="Delete chat"
+                >
+                  <X className="h-4 w-4 text-slate-400 hover:text-red-400" />
+                </button>
               </div>
-            </div>
-
-            <button
-              onClick={(e) => handleDelete(e, conv.id)}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-700 rounded-md transition-all shrink-0"
-              title="Delete chat"
-            >
-              <X className="h-4 w-4 text-slate-400 hover:text-red-400" />
-            </button>
-          </div>
-        );
-      })}
+            );
+          })}
         </div>
       )}
     </>
   );
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Sidebar — UI with Dynamic Models via React Query
 // ─────────────────────────────────────────────────────────────────────────────
@@ -122,8 +166,12 @@ export default function Sidebar() {
   const { model, setModel, resetChat } = useChatContext();
 
   // Fetch models from Groq API
-  const { data: models, isLoading, isError } = useQuery({
-    queryKey: ['groqModels'],
+  const {
+    data: models,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["groqModels"],
     queryFn: fetchModels,
     staleTime: 1000 * 60 * 60, // Cache for 1 hour to avoid spamming the API
   });
@@ -141,7 +189,10 @@ export default function Sidebar() {
       </div>
 
       {/* ── New Chat ────────────────────────────────────────────────────── */}
-      <button onClick={resetChat} className="group relative flex items-center justify-center gap-2 rounded-lg p-[1px]">
+      <button
+        onClick={resetChat}
+        className="group relative flex items-center justify-center gap-2 rounded-lg p-[1px]"
+      >
         {/* gradient border trick */}
         <span className="absolute inset-0 rounded-lg bg-gradient-to-r from-violet-600 via-blue-500 to-cyan-400 opacity-70 transition-opacity group-hover:opacity-100" />
         <span className="relative flex w-full items-center justify-center gap-2 rounded-[7px] bg-slate-950 px-4 py-2.5 text-sm font-medium text-slate-200 transition-colors group-hover:bg-slate-900">
@@ -170,11 +221,13 @@ export default function Sidebar() {
           >
             {isLoading && <option value={model}>Loading models...</option>}
             {isError && <option value={model}>Error loading models</option>}
-            {!isLoading && !isError && models?.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.id}
-              </option>
-            ))}
+            {!isLoading &&
+              !isError &&
+              models?.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.id}
+                </option>
+              ))}
           </select>
         </div>
 
