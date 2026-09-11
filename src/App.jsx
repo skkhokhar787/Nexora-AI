@@ -3,7 +3,7 @@ import { ChatProvider } from "./context/ChatContext";
 import LandingPage from "./pages/LandingPage";
 import Home from "./pages/Home";
 import LoginPage from "./pages/LoginPage";
-import SignUpPage from "./pages/SignupPage";
+import SignUpPage from "./pages/SignUpPage";
 
 export default function App() {
   return (
