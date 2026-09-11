@@ -10,7 +10,7 @@ export default function App() {
     <ChatProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/home" element={<Home />} />
+        <Route path="/home/*" element={<Home />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/login/signup" element={<SignUpPage />} />
         <Route path="/signup" element={<SignUpPage />} />

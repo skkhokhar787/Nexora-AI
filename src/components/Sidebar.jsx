@@ -2,22 +2,18 @@ import { useState, useEffect } from "react";
 import {
   Sparkles,
   Plus,
-  ChevronDown,
-  Thermometer,
   MessageSquare,
   X,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchModels } from "../APIs/chatApi";
 import { useChatContext } from "../context/ChatContext";
 import {
   collection,
   query,
   orderBy,
-  where,
   onSnapshot,
   deleteDoc,
   doc,
+  getDocs,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "../firebase/dataStoring";
@@ -62,6 +58,10 @@ function ChatHistoryList() {
     e.stopPropagation();
     if (!userId) return;
     try {
+      const messagesRef = collection(db, "users", userId, "conversations", id, "messages");
+      const messagesSnap = await getDocs(messagesRef);
+      const deletePromises = messagesSnap.docs.map((msgDoc) => deleteDoc(msgDoc.ref));
+      await Promise.all(deletePromises);
       await deleteDoc(doc(db, "users", userId, "conversations", id));
       if (conversationId === id) {
         resetChat();
@@ -75,9 +75,13 @@ function ChatHistoryList() {
     if (!userId) return;
     if (!window.confirm("Are you sure you want to delete all chats?")) return;
     try {
-      const promises = conversations.map((conv) =>
-        deleteDoc(doc(db, "users", userId, "conversations", conv.id)),
-      );
+      const promises = conversations.map(async (conv) => {
+        const messagesRef = collection(db, "users", userId, "conversations", conv.id, "messages");
+        const messagesSnap = await getDocs(messagesRef);
+        const deleteMsgs = messagesSnap.docs.map((msgDoc) => deleteDoc(msgDoc.ref));
+        await Promise.all(deleteMsgs);
+        return deleteDoc(doc(db, "users", userId, "conversations", conv.id));
+      });
       await Promise.all(promises);
       resetChat();
     } catch (error) {
@@ -163,18 +167,7 @@ function ChatHistoryList() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Sidebar() {
-  const { model, setModel, resetChat } = useChatContext();
-
-  // Fetch models from Groq API
-  const {
-    data: models,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["groqModels"],
-    queryFn: fetchModels,
-    staleTime: 1000 * 60 * 60, // Cache for 1 hour to avoid spamming the API
-  });
+  const { resetChat } = useChatContext();
 
   return (
     <aside className="flex w-72 flex-col border-r border-slate-800 bg-slate-950 px-4 py-5">
@@ -204,53 +197,6 @@ export default function Sidebar() {
       {/* ── Chat History ──────────────────────────────────────────────────── */}
       <div className="mt-6 flex flex-col gap-2 flex-1 overflow-y-auto pr-2">
         <ChatHistoryList />
-      </div>
-
-      {/* ── Settings ────────────────────────────────────────────────────── */}
-      <div className="space-y-5 border-t border-slate-800 pt-5">
-        {/* Model selector */}
-        <div className="space-y-1.5">
-          <label className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-slate-400">
-            <ChevronDown className="h-3.5 w-3.5" />
-            Model
-          </label>
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="w-full cursor-pointer rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none transition focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40"
-          >
-            {isLoading && <option value={model}>Loading models...</option>}
-            {isError && <option value={model}>Error loading models</option>}
-            {!isLoading &&
-              !isError &&
-              models?.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.id}
-                </option>
-              ))}
-          </select>
-        </div>
-
-        {/* Temperature slider */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-slate-400">
-            <Thermometer className="h-3.5 w-3.5" />
-            Temperature
-            <span className="ml-auto font-mono text-violet-400">0.70</span>
-          </label>
-          <input
-            type="range"
-            min={0}
-            max={2}
-            step={0.05}
-            defaultValue={0.7}
-            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-700 accent-violet-500"
-          />
-          <div className="flex justify-between text-[10px] text-slate-500">
-            <span>Precise</span>
-            <span>Creative</span>
-          </div>
-        </div>
       </div>
     </aside>
   );
