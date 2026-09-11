@@ -69,7 +69,7 @@ export default function ChatInput() {
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   aria-label="Select AI model"
-                  className="appearance-none max-w-[120px] truncate cursor-pointer rounded-full bg-[#0d1225] py-1.5 pl-3 pr-8 text-xs text-slate-300 outline-none transition hover:bg-[#1a233a]"
+                  className="appearance-none max-w-[120px] truncate cursor-pointer rounded-full bg-[#0d1225] py-1.5 pl-2 pr-6 text-xs text-slate-300 outline-none transition hover:bg-[#1a233a]"
                 >
                   {models?.map((m) => (
                     <option
@@ -83,7 +83,7 @@ export default function ChatInput() {
                 </select>
                 {/* Custom Chevron Icon for the select */}
                 <svg
-                  className="pointer-events-none absolute right-2.5 h-3.5 w-3.5 text-slate-400"
+                  className="pointer-events-none absolute right-1.5 h-3.5 w-3.5 text-slate-400"
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
                   fill="none"
