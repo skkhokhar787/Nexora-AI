@@ -7,6 +7,7 @@ import {
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../firebase/dataStoring";
+import NexoraLogo from "../components/NexoraLogo";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -81,22 +82,7 @@ const LoginPage = () => {
         {/* Top Logo & Title */}
         <div className="text-center mb-8">
           <a href="#" className="inline-flex items-center space-x-2 mb-4 group">
-            <svg
-              className="w-8 h-8 text-blue-500 group-hover:scale-110 transition-transform duration-200"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M13 10V3L4 14h7v7l9-11h-7z"
-              />
-            </svg>
-            <span className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-              Nexora AI
-            </span>
+            <NexoraLogo className="w-8 h-8 group-hover:scale-110 transition-transform duration-200" />
           </a>
           <h2 className="text-2xl font-bold tracking-tight">Welcome back</h2>
           <p className="text-sm text-gray-400 mt-1">

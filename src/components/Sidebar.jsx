@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Sparkles,
   Plus,
   MessageSquare,
   X,
+  User,
 } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
+import NexoraLogo from "./NexoraLogo";
 import {
   collection,
   query,
@@ -22,11 +24,16 @@ function ChatHistoryList() {
   const { conversationId, setConversationId, resetChat } = useChatContext();
   const [conversations, setConversations] = useState([]);
   const [userId, setUserId] = useState(null);
+  const [userName, setUserName] = useState(null);
+  const [userPhoto, setUserPhoto] = useState(null);
+  const navigate = useNavigate();
 
-  // Track the logged-in user
+  // Track the logged-in user and get their name
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setUserId(user ? user.uid : null);
+      setUserName(user ? (user.displayName || user.email || "User") : null);
+      setUserPhoto(user ? (user.photoURL || null) : null);
     });
     return () => unsubscribeAuth();
   }, []);
@@ -159,6 +166,35 @@ function ChatHistoryList() {
           })}
         </div>
       )}
+
+      {/* ── User Profile ──────────────────────────────────────────────── */}
+      {userId && (
+        <div className="mt-auto pt-4 border-t border-slate-800">
+          <button
+            onClick={() => navigate("/home/profile")}
+            title={userName}
+            className="group flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-violet-600 to-blue-500 text-xs font-semibold text-white">
+              {userPhoto ? (
+                <img
+                  src={userPhoto}
+                  alt={userName}
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                />
+              ) : userName ? (
+                userName[0].toUpperCase()
+              ) : (
+                <User className="h-4 w-4" />
+              )}
+            </div>
+            <span className="truncate opacity-0 transition-opacity group-hover:opacity-100">
+              {userName}
+            </span>
+          </button>
+        </div>
+      )}
     </>
   );
 }
@@ -173,12 +209,7 @@ export default function Sidebar() {
     <aside className="flex w-72 flex-col border-r border-slate-800 bg-slate-950 px-4 py-5">
       {/* ── Brand ───────────────────────────────────────────────────────── */}
       <div className="mb-8 flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-blue-500">
-          <Sparkles className="h-5 w-5 text-white" />
-        </div>
-        <span className="text-lg font-semibold tracking-tight text-white">
-          Nexora AI
-        </span>
+        <NexoraLogo className="w-9 h-9" textClassName="text-lg" />
       </div>
 
       {/* ── New Chat ────────────────────────────────────────────────────── */}

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  Bot,
   User,
   Sliders,
   PieChart,
@@ -18,18 +18,31 @@ import {
   Copy,
   Eye,
   EyeOff,
-  AlertTriangle
+  AlertTriangle,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../firebase/dataStoring';
+import { fetchModels, sendChatMessage } from '../APIs/chatApi';
+import NexoraLogo from '../components/NexoraLogo';
 
  function ProfilePage() {
+  const navigate = useNavigate();
+
   // Navigation State
   const [activeTab, setActiveTab] = useState('ai-preferences');
 
+  // Firebase user
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   // Form & Settings States
   const [formData, setFormData] = useState({
-    name: 'Alex Morgan',
-    email: 'alex.morgan@example.com',
-    model: 'gpt-4o',
+    name: '',
+    email: '',
+    model: 'openai/gpt-oss-120b',
     temperature: 0.7,
     instructions: 'I am a Senior React developer. Keep answers concise, code-first, and avoid unnecessary explanations unless asked.',
     saveHistory: true,
@@ -41,6 +54,30 @@ import {
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const apiKey = 'sk-proj-8f92a10b4c8d1e2f3g4h5i6j7k8l9m0n';
+
+  // Fetch real models from Groq API
+  const { data: groqModels, isLoading: modelsLoading, isError: modelsError } = useQuery({
+    queryKey: ['groqModels'],
+    queryFn: fetchModels,
+    staleTime: 1000 * 60 * 60,
+  });
+
+  // Load the authenticated user from Firebase
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser) {
+        setFormData((prev) => ({
+          ...prev,
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+          email: firebaseUser.email || '',
+          model: prev.model || 'openai/gpt-oss-120b',
+        }));
+      }
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Input Change Handlers
   const handleChange = (field, value) => {
@@ -74,6 +111,31 @@ import {
     { id: 'privacy', label: 'Data & Privacy', icon: Shield },
   ];
 
+  // Auth Loading / No User State
+  if (authLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 min-h-screen bg-slate-950 text-emerald-400">
+        <Loader2 className="w-8 h-8 animate-spin" />
+        <span className="text-sm font-medium">Loading profile...</span>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 min-h-screen bg-slate-950 text-slate-400 px-6 text-center">
+        <User className="w-10 h-10" />
+        <span className="text-sm font-medium">You are not signed in.</span>
+        <button
+          onClick={() => navigate('/login')}
+          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium transition"
+        >
+          Go to Login
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased">
       {/* Save Toast Notification */}
@@ -88,17 +150,9 @@ import {
       <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-              <Bot className="w-5 h-5" />
-            </div>
-            <span className="font-bold text-lg tracking-tight flex items-center gap-2">
-              BotForge
-              <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-normal">
-                v2.4
-              </span>
-            </span>
+            <Link to={"/home"}><NexoraLogo className="w-8 h-8" textClassName="text-lg" /></Link>
           </div>
-          <button className="text-sm text-slate-400 hover:text-white flex items-center gap-2 transition">
+          <button onClick={() => navigate('/home')} className="text-sm text-slate-400 hover:text-white flex items-center gap-2 transition">
             <ArrowLeft className="w-4 h-4" /> Back to Chat
           </button>
         </div>
@@ -165,11 +219,18 @@ import {
             <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="flex items-center gap-5 w-full md:w-auto">
                 <div className="relative group cursor-pointer">
-                  <img
-                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250"
-                    alt="Avatar"
-                    className="w-20 h-20 rounded-2xl object-cover ring-2 ring-emerald-500/30"
-                  />
+                  {user?.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt="Avatar"
+                      referrerPolicy="no-referrer"
+                      className="w-20 h-20 rounded-2xl object-cover ring-2 ring-emerald-500/30"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center ring-2 ring-emerald-500/30">
+                      <User className="w-10 h-10 text-white" />
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-slate-950/60 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-xs font-medium text-white gap-1">
                     <Camera className="w-4 h-4" /> Edit
                   </div>
@@ -246,10 +307,19 @@ import {
                       onChange={(e) => handleChange('model', e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition cursor-pointer"
                     >
-                      <option value="gpt-4o">GPT-4o (Smartest & Fastest)</option>
-                      <option value="claude-3-5-sonnet">Claude 3.5 Sonnet (Best for Code)</option>
-                      <option value="llama-3">Llama 3 70B (Open Source)</option>
-                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Low Token Cost)</option>
+                      {modelsLoading && (
+                        <option value={formData.model}>Loading models...</option>
+                      )}
+                      {modelsError && (
+                        <option value={formData.model}>
+                          {formData.model || 'Error loading models'}
+                        </option>
+                      )}
+                      {groqModels?.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.id}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

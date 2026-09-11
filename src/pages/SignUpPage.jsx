@@ -1,7 +1,14 @@
-import { createUserWithEmailAndPassword, GithubAuthProvider, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  updateProfile,
+  GithubAuthProvider,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../firebase/dataStoring";
+import NexoraLogo from "../components/NexoraLogo";
 
 const SignUpPage = () => {
   const navigate = useNavigate();
@@ -58,6 +65,11 @@ const SignUpPage = () => {
         formData.email,
         formData.password,
       );
+
+      // Save the user's full name as the Firebase display name
+      await updateProfile(userCredential.user, {
+        displayName: formData.fullName,
+      });
 
       console.log("User created:", userCredential.user);
       console.log("UID:", userCredential.user.uid);
@@ -125,23 +137,7 @@ const SignUpPage = () => {
             to="/"
             className="inline-flex items-center space-x-2 mb-3 group"
           >
-            <svg
-              className="w-8 h-8 text-blue-500 group-hover:scale-110 transition-transform duration-200"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M13 10V3L4 14h7v7l9-11h-7z"
-              />
-            </svg>
-
-            <span className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-              Nexora AI
-            </span>
+            <NexoraLogo className="w-8 h-8 group-hover:scale-110 transition-transform duration-200" />
           </Link>
 
           <h2 className="text-2xl font-bold tracking-tight">
