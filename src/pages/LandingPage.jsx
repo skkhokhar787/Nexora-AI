@@ -89,6 +89,7 @@ const LandingPage = () => {
               <span className="text-xl font-bold">GlobalTech</span>
               <span className="text-xl font-bold">InnovateOS</span>
               <span className="text-xl font-bold">NexusFlow</span>
+              <span className="text-xl font-bold">Groq AI</span>
             </div>
           </div>
 
