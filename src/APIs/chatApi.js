@@ -50,7 +50,7 @@ export const sendChatMessage = async ({ messages, model }) => {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${secrets.VITE_GROQ_API_KEY}`,
+      'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -78,7 +78,7 @@ export const generateChatTitle = async (firstMessage) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${secrets.VITE_GROQ_API_KEY}`,
+        Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
       },
       body: JSON.stringify({
         model: "openai/gpt-oss-20b",
@@ -108,7 +108,7 @@ export const generateChatTitle = async (firstMessage) => {
 export const fetchModels = async () => {
   const response = await fetch('https://api.groq.com/openai/v1/models', {
     headers: {
-      'Authorization': `Bearer ${secrets.VITE_GROQ_API_KEY}`,
+      'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
       'Content-Type': 'application/json'
     }
   });
