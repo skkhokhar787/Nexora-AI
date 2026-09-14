@@ -35,8 +35,6 @@ export default function ChatInput() {
     }
   };
 
-console.log(models);
-
   return (
     <footer className="shrink-0 border-t border-slate-900 bg-[#030611] px-4 py-4 md:px-8 lg:px-16 xl:px-32">
       {/* Unified Input Container */}
