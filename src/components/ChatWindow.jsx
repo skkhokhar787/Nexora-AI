@@ -4,7 +4,8 @@ import { Sparkles, Loader2, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchInitialData, generateChatTitle } from "../APIs/chatApi";
-import { useChatContext } from "../context/ChatContext";
+import { useChat } from "../redux/hooks/useChat";
+import { setMessages } from "../redux/slices/chatSlice";
 import ChatMessage from "./ChatMessage";
 import { db, auth } from "../firebase/dataStoring";
 
@@ -24,11 +25,10 @@ import {
 function ChatWindow() {
   const {
     messages,
-    setMessages,
     isPending,
     conversationId,
     setConversationId,
-  } = useChatContext();
+  } = useChat();
 
   const bottomRef = useRef(null);
 

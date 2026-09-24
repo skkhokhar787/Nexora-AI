@@ -7,7 +7,7 @@ import {
   User,
   LogOut,
 } from "lucide-react";
-import { useChatContext } from "../context/ChatContext";
+import { useChat } from "../redux/hooks/useChat";
 import NexoraLogo from "./NexoraLogo";
 import {
   collection,
@@ -22,7 +22,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { db, auth } from "../firebase/dataStoring";
 
 function ChatHistoryList() {
-  const { conversationId, setConversationId, resetChat } = useChatContext();
+  const { conversationId, setConversationId, resetChat } = useChat();
   const [conversations, setConversations] = useState([]);
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState(null);
@@ -226,7 +226,7 @@ function ChatHistoryList() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Sidebar() {
-  const { resetChat } = useChatContext();
+  const { resetChat } = useChat();
 
   return (
     <aside className="flex w-72 flex-col border-r border-slate-800 bg-slate-950 px-4 py-5">

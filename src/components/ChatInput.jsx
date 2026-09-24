@@ -1,16 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SendHorizonal, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchModels } from "../APIs/chatApi";
-import { useChatContext } from "../context/ChatContext";
+import { useDispatch, useSelector } from "react-redux";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ChatInput — Powered by React Query via ChatContext
-// ─────────────────────────────────────────────────────────────────────────────
+import { fetchModels } from "../APIs/chatApi";
+import { setModel } from "../redux/slices/chatSlice";
+import { useChat } from "../redux/hooks/useChat";
 
 export default function ChatInput() {
   const [value, setValue] = useState("");
-  const { sendMessage, isPending, model, setModel } = useChatContext();
+
+  const dispatch = useDispatch();
+
+  const model = useSelector((state) => state.chat.model);
+  const isPending = useSelector((state) => state.chat.isPending);
+
+  const { sendMessage } = useChat();
 
   const {
     data: models,
@@ -19,11 +24,18 @@ export default function ChatInput() {
   } = useQuery({
     queryKey: ["groqModels"],
     queryFn: fetchModels,
-    staleTime: 1000 * 60 * 60, // Cache for 1 hour to avoid spamming the API
+    staleTime: 1000 * 60 * 60,
   });
+
+  useEffect(() => {
+    if (models?.length && !model) {
+      dispatch(setModel(models[0].id));
+    }
+  }, [models, model, dispatch]);
 
   const handleSend = () => {
     if (!value.trim() || isPending) return;
+
     sendMessage(value);
     setValue("");
   };
@@ -37,10 +49,8 @@ export default function ChatInput() {
 
   return (
     <footer className="shrink-0 border-t border-slate-900 bg-[#030611] px-4 py-4 md:px-8 lg:px-16 xl:px-32">
-      {/* Unified Input Container */}
-      {/* <div className="flex md:w-full lg:w-full border"> */}
       <div className="mx-auto flex max-w-4xl justify-center items-center p-2 rounded-2xl border border-[#1e2638] bg-[#090d1a] transition focus-within:border-violet-600/60 focus-within:ring-1 focus-within:ring-violet-600/30">
-        {/* Textarea */}
+        
         <textarea
           rows={1}
           value={value}
@@ -51,9 +61,7 @@ export default function ChatInput() {
           className="min-h-[52px] w-full resize-none bg-transparent px-4 pt-4 pb-2 text-sm text-slate-200 placeholder-slate-500 outline-none disabled:opacity-50"
         />
 
-        {/* Bottom Controls Row */}
         <div className="flex items-center justify-between px-3 pb-3 pt-1">
-          {/* Left: Model Selector */}
           <div className="flex items-center">
             {isLoading ? (
               <span className="pl-2 text-xs text-slate-500">
@@ -67,7 +75,7 @@ export default function ChatInput() {
               <div className="relative flex items-center">
                 <select
                   value={model}
-                  onChange={(e) => setModel(e.target.value)}
+                  onChange={(e) => dispatch(setModel(e.target.value))}
                   aria-label="Select AI model"
                   className="appearance-none max-w-[120px] truncate cursor-pointer rounded-full bg-[#0d1225] py-1.5 pl-2 pr-6 text-xs text-slate-300 outline-none transition hover:bg-[#1a233a]"
                 >
@@ -81,7 +89,7 @@ export default function ChatInput() {
                     </option>
                   ))}
                 </select>
-                {/* Custom Chevron Icon for the select */}
+
                 <svg
                   className="pointer-events-none absolute right-1.5 h-3.5 w-3.5 text-slate-400"
                   xmlns="http://www.w3.org/2000/svg"
@@ -98,7 +106,7 @@ export default function ChatInput() {
             )}
           </div>
         </div>
-        {/* Right: Send Button */}
+
         <button
           onClick={handleSend}
           disabled={!value.trim() || isPending}
@@ -112,7 +120,7 @@ export default function ChatInput() {
           )}
         </button>
       </div>
-      {/* </div> */}
+
       <p className="mt-2.5 text-center text-[11px] text-slate-600">
         Nexora AI can make mistakes. Verify important information.
       </p>
